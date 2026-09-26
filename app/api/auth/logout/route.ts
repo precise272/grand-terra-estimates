@@ -1,0 +1,2 @@
+import {authError,clearCookie,revokeSession,sameOrigin,sessionCookieName} from "@/lib/auth";
+export async function POST(request:Request){if(!sameOrigin(request))return authError("Invalid request origin.",403);try{await revokeSession(request.headers,request.url);return Response.json({ok:true},{headers:{"Set-Cookie":clearCookie(sessionCookieName(request.url),request.url),"Cache-Control":"no-store"}})}catch(error){console.error(error);return authError("Could not sign out.",503)}}

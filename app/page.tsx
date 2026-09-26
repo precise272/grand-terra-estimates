@@ -1,11 +1,7 @@
-import { headers } from "next/headers";
-import { chatGPTSignInPath,getChatGPTUser } from "./chatgpt-auth";
+import {headers} from "next/headers";
+import {identityFromHeaders} from "@/lib/auth";
 import Workspace from "@/components/workspace";
+import Landing from "@/components/landing";
 export const dynamic="force-dynamic";
-export default async function Home(){
- const user=await getChatGPTUser();
- const host=(await headers()).get("host")||"";
- if(user||host.startsWith("127.0.0.1")||host.startsWith("localhost"))return <Workspace/>;
- return <main className="auth-page"><div className="auth-card"><div className="auth-mark">GT</div><div className="eyebrow">GRAND TERRA ESTIMATES</div><h1>Your work, securely in one place.</h1><p>Sign in to manage your clients, estimates, invoices, and company settings. Every account has its own private records.</p><a className="auth-button" href={chatGPTSignInPath("/")} target="_top">Sign in with ChatGPT</a><small>Authentication is handled by ChatGPT. Your estimates and client details are stored with your account.</small></div></main>;
-}
+export default async function Home(){const h=await headers(),host=h.get("host")||"localhost",proto=host.startsWith("127.0.0.1")||host.startsWith("localhost")?"http":h.get("x-forwarded-proto")||"https";const identity=await identityFromHeaders(h,proto+"://"+host+"/");return identity?<Workspace/>:<Landing/>}
 

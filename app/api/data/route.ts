@@ -1,4 +1,5 @@
-import { bucket, db, fail, ownerFor, serverError } from "@/lib/server";
+import { bucket, db, fail, serverError } from "@/lib/server";
+import {identityFor,ownerForRequest,sameOrigin} from "@/lib/auth";
 type Payload=Record<string,unknown>;
 const text=(v:unknown,max=3000)=>String(v??"").trim().slice(0,max);
 const integer=(v:unknown)=>Number.isFinite(Number(v))?Math.max(0,Math.round(Number(v))):0;
@@ -17,10 +18,13 @@ function companyValue(v:Payload){
  const flags=["photos","discounts","deposits","taxNumber","signature","paymentInstructions","jobAddress"];
  const features=Object.fromEntries(flags.map(k=>[k,featureSource[k]!==false]));
  const style=["classic","modern","minimal"].includes(String(v.documentStyle))?String(v.documentStyle):"classic";
- return{businessName:text(v.businessName,180),email:text(v.email,200),phone:text(v.phone,80),address:text(v.address,600),taxNumber:text(v.taxNumber,100),paymentInstructions:text(v.paymentInstructions,1500),defaultTerms:text(v.defaultTerms,1500),province:text(v.province,2).toUpperCase()||"ON",accentColor:colour(v.accentColor,"#183f8f"),secondaryColor:colour(v.secondaryColor,"#d8b36a"),documentStyle:style,footerText:text(v.footerText,500),estimatePrefix:text(v.estimatePrefix,12).toUpperCase()||"EST",invoicePrefix:text(v.invoicePrefix,12).toUpperCase()||"INV",emailSubject:text(v.emailSubject,300),emailMessage:text(v.emailMessage,3000),preferencesJson:JSON.stringify(features)}
+ const lh=v.letterhead&&typeof v.letterhead==="object"?v.letterhead as Payload:{};
+ const choose=(value:unknown,allowed:string[],fallback:string)=>allowed.includes(String(value))?String(value):fallback;
+ const letterhead={logoPosition:choose(lh.logoPosition,["left","center","right"],"left"),logoSize:choose(lh.logoSize,["small","medium","large"],"medium"),headerStyle:choose(lh.headerStyle,["line","band","none"],"line"),companyAlignment:choose(lh.companyAlignment,["left","center","right"],"left"),showLogo:lh.showLogo!==false};
+ return{businessName:text(v.businessName,180),email:text(v.email,200),phone:text(v.phone,80),address:text(v.address,600),taxNumber:text(v.taxNumber,100),paymentInstructions:text(v.paymentInstructions,1500),defaultTerms:text(v.defaultTerms,1500),province:text(v.province,2).toUpperCase()||"ON",accentColor:colour(v.accentColor,"#183f8f"),secondaryColor:colour(v.secondaryColor,"#d8b36a"),documentStyle:style,footerText:text(v.footerText,500),estimatePrefix:text(v.estimatePrefix,12).toUpperCase()||"EST",invoicePrefix:text(v.invoicePrefix,12).toUpperCase()||"INV",emailSubject:text(v.emailSubject,300),emailMessage:text(v.emailMessage,3000),preferencesJson:JSON.stringify(features),letterheadJson:JSON.stringify(letterhead)}
 }
 export async function GET(request:Request){
- const owner=ownerFor(request);if(!owner)return fail("Sign in to access your records.",401);
+ const identity=await identityFor(request),owner=identity?.owner;if(!owner)return fail("Sign in to access your records.",401);
  try{
   const database=db();
   const [clients,documents,photos,settings,profile,catalog]=await Promise.all([
@@ -31,12 +35,11 @@ export async function GET(request:Request){
    database.prepare("SELECT * FROM user_profiles WHERE owner=?").bind(owner).first(),
    database.prepare("SELECT * FROM catalog_entries WHERE owner=? ORDER BY kind,name COLLATE NOCASE").bind(owner).all()
   ]);
-  let fullName="";if(request.headers.get("oai-authenticated-user-full-name-encoding")==="percent-encoded-utf-8"){try{fullName=decodeURIComponent(request.headers.get("oai-authenticated-user-full-name")||"")}catch{}}
-  return json({clients:clients.results,documents:documents.results,photos:photos.results,settings,profile,catalog:catalog.results,auth:{email:request.headers.get("oai-authenticated-user-email")||"local-preview@example.com",fullName}});
+  return json({clients:clients.results,documents:documents.results,photos:photos.results,settings,profile,catalog:catalog.results,auth:{email:identity?.email||"",fullName:identity?.fullName||"",provider:identity?.provider||"account"}});
  }catch(error){return serverError(error)}
 }
 export async function POST(request:Request){
- const owner=ownerFor(request);if(!owner)return fail("Sign in to save records.",401);
+ if(!sameOrigin(request))return fail("Invalid request origin.",403);const owner=await ownerForRequest(request);if(!owner)return fail("Sign in to save records.",401);
  let body:Payload;try{body=await request.json() as Payload}catch{return fail("Invalid request.")}
  const action=text(body.action,50),value=body.value&&typeof body.value==="object"?body.value as Payload:{},id=text(body.id,80),database=db();
  try{
@@ -68,7 +71,7 @@ export async function POST(request:Request){
   if(action==="saveSettings"){
    const c=companyValue(value);
    await database.prepare("INSERT INTO settings (owner) VALUES (?) ON CONFLICT(owner) DO NOTHING").bind(owner).run();
-   await database.prepare("UPDATE settings SET business_name=?,email=?,phone=?,address=?,tax_number=?,payment_instructions=?,default_terms=?,province=?,accent_color=?,secondary_color=?,document_style=?,footer_text=?,estimate_prefix=?,invoice_prefix=?,email_subject=?,email_message=?,preferences_json=? WHERE owner=?").bind(c.businessName,c.email,c.phone,c.address,c.taxNumber,c.paymentInstructions,c.defaultTerms,c.province,c.accentColor,c.secondaryColor,c.documentStyle,c.footerText,c.estimatePrefix,c.invoicePrefix,c.emailSubject,c.emailMessage,c.preferencesJson,owner).run();
+   await database.prepare("UPDATE settings SET business_name=?,email=?,phone=?,address=?,tax_number=?,payment_instructions=?,default_terms=?,province=?,accent_color=?,secondary_color=?,document_style=?,footer_text=?,estimate_prefix=?,invoice_prefix=?,email_subject=?,email_message=?,preferences_json=?,letterhead_json=? WHERE owner=?").bind(c.businessName,c.email,c.phone,c.address,c.taxNumber,c.paymentInstructions,c.defaultTerms,c.province,c.accentColor,c.secondaryColor,c.documentStyle,c.footerText,c.estimatePrefix,c.invoicePrefix,c.emailSubject,c.emailMessage,c.preferencesJson,c.letterheadJson,owner).run();
    return json({ok:true});
   }
   if(action==="saveProfile"){
@@ -90,4 +93,7 @@ export async function POST(request:Request){
   return fail("Unknown action.");
  }catch(error){return serverError(error)}
 }
+
+
+
 

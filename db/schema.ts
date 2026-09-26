@@ -26,7 +26,7 @@ export const settings = sqliteTable("settings", {
   secondaryColor: text("secondary_color").notNull().default("#d8b36a"), documentStyle: text("document_style").notNull().default("classic"),
   footerText: text("footer_text").notNull().default(""), estimatePrefix: text("estimate_prefix").notNull().default("EST"),
   invoicePrefix: text("invoice_prefix").notNull().default("INV"), emailSubject: text("email_subject").notNull().default(""),
-  emailMessage: text("email_message").notNull().default(""), preferencesJson: text("preferences_json").notNull().default("{}"),
+  emailMessage: text("email_message").notNull().default(""), preferencesJson: text("preferences_json").notNull().default("{}"), letterheadJson: text("letterhead_json").notNull().default("{}"),
 });
 
 export const photos = sqliteTable("photos", {
@@ -50,3 +50,16 @@ export const catalogEntries = sqliteTable("catalog_entries", {
   createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
 }, t => [index("idx_catalog_owner_kind_name").on(t.owner,t.kind,t.name)]);
 
+
+export const accounts = sqliteTable("accounts", {
+  id: text("id").primaryKey(), email: text("email").notNull().unique(), name: text("name").notNull(),
+  passwordHash: text("password_hash"), googleSub: text("google_sub").unique(), emailVerified: integer("email_verified", {mode:"boolean"}).notNull().default(false),
+  createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(),
+});
+export const authSessions = sqliteTable("auth_sessions", {
+  tokenHash: text("token_hash").primaryKey(), accountId: text("account_id").notNull(),
+  expiresAt: integer("expires_at").notNull(), createdAt: integer("created_at").notNull(), lastSeenAt: integer("last_seen_at").notNull(),
+}, t => [index("idx_auth_sessions_account").on(t.accountId),index("idx_auth_sessions_expiry").on(t.expiresAt)]);
+export const authAttempts = sqliteTable("auth_attempts", {
+  key: text("key").primaryKey(), count: integer("count").notNull(), windowStart: integer("window_start").notNull(), lockedUntil: integer("locked_until").notNull(),
+});

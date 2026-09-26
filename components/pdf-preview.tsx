@@ -1,0 +1,8 @@
+"use client";
+import {useEffect,useState} from "react";
+import {Download,ExternalLink} from "lucide-react";
+import {Dialog,DialogContent,DialogHeader,DialogTitle} from "@/components/ui/dialog";
+import {Button} from "@/components/ui/button";
+import {Business,Client,Doc,Photo,Profile} from "@/lib/model";
+import {downloadPdf,makePdf} from "@/lib/pdf";
+export default function PdfPreview({doc,client,company,profile,photos,onClose}:{doc:Doc;client?:Partial<Client>;company:Business;profile:Profile;photos:Photo[];onClose:()=>void}){const [url,setUrl]=useState(""),[file,setFile]=useState<File|null>(null),[error,setError]=useState("");useEffect(()=>{let live=true;makePdf(doc,client,company,profile,photos.filter(p=>p.documentId===doc.id)).then(pdf=>{if(live){setFile(pdf);setUrl(URL.createObjectURL(pdf))}}).catch(e=>{if(live)setError((e as Error).message)});return()=>{live=false}},[doc,client,company,profile,photos]);useEffect(()=>()=>{if(url)URL.revokeObjectURL(url)},[url]);return <Dialog open onOpenChange={open=>{if(!open)onClose()}}><DialogContent className="document-preview-dialog"><DialogHeader><DialogTitle>Preview {doc.kind} {doc.number}</DialogTitle></DialogHeader><div className="document-preview-actions"><Button variant="outline" disabled={!url} onClick={()=>window.open(url,"_blank","noopener,noreferrer")}><ExternalLink size={16}/> Open</Button><Button className="primary-button" disabled={!file} onClick={()=>file&&downloadPdf(file)}><Download size={16}/> Download PDF</Button></div>{error?<div className="pdf-preview-error">{error}</div>:url?<iframe title="Document PDF preview" src={url}/>:<div className="pdf-preview-loading">Preparing PDF preview…</div>}</DialogContent></Dialog>}

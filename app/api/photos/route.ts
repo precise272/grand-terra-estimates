@@ -1,7 +1,9 @@
-import { bucket, db, fail, ownerFor, serverError } from "@/lib/server";
+import { bucket, db, fail, serverError } from "@/lib/server";
+import {ownerForRequest,sameOrigin} from "@/lib/auth";
 
 export async function POST(request: Request) {
-  const owner = ownerFor(request);
+  if(!sameOrigin(request))return fail("Invalid request origin.",403);
+  const owner = await ownerForRequest(request);
   if (!owner) return fail("Sign in to upload photos.", 401);
   try {
     const form = await request.formData();
@@ -20,7 +22,7 @@ export async function POST(request: Request) {
   } catch (error) { return serverError(error); }
 }
 export async function GET(request: Request) {
-  const owner = ownerFor(request);
+  const owner = await ownerForRequest(request);
   if (!owner) return fail("Sign in to view photos.", 401);
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return fail("Photo id is required.");
@@ -33,7 +35,8 @@ export async function GET(request: Request) {
   } catch (error) { return serverError(error); }
 }
 export async function DELETE(request: Request) {
-  const owner = ownerFor(request);
+  if(!sameOrigin(request))return fail("Invalid request origin.",403);
+  const owner = await ownerForRequest(request);
   if (!owner) return fail("Sign in to delete photos.",401);
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return fail("Photo id is required.");
@@ -45,4 +48,5 @@ export async function DELETE(request: Request) {
     return Response.json({ ok:true });
   } catch (error) { return serverError(error); }
 }
+
 

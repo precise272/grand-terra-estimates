@@ -1,12 +1,5 @@
 import { env } from "cloudflare:workers";
 
-export function ownerFor(request: Request) {
-  const owner = request.headers.get("oai-authenticated-user-id");
-  if (owner) return owner;
-  const host = new URL(request.url).hostname;
-  if (host === "localhost" || host === "127.0.0.1") return "local-preview";
-  return null;
-}
 export function db() {
   if (!env.DB) throw new Error("Database is unavailable");
   return env.DB;
@@ -22,4 +15,5 @@ export function serverError(error: unknown) {
   console.error(error);
   return fail("The service is temporarily unavailable. Your changes have not been saved.", 503);
 }
+
 
