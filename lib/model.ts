@@ -2,8 +2,14 @@ export type Client={id:string;name:string;company:string;email:string;phone:stri
 export type Item={id:string;description:string;quantity:number;unit:string;unitPriceCents:number;taxable:boolean};
 export type Doc={id:string;clientId:string|null;kind:"estimate"|"invoice";number:string;title:string;status:string;issueDate:string;dueDate:string;province:string;taxRate:number;discountCents:number;depositCents:number;notes:string;terms:string;items:Item[];clientSnapshot:Partial<Client>;updatedAt:number};
 export type Features={photos:boolean;discounts:boolean;deposits:boolean;taxNumber:boolean;signature:boolean;paymentInstructions:boolean;jobAddress:boolean};
-export type Letterhead={logoPosition:"left"|"center"|"right";logoSize:"small"|"medium"|"large";headerStyle:"line"|"band"|"none";companyAlignment:"left"|"center"|"right";showLogo:boolean};
-export const defaultLetterhead:Letterhead={logoPosition:"left",logoSize:"medium",headerStyle:"line",companyAlignment:"left",showLogo:true};
+export type Letterhead={
+ logoPosition:"left"|"center"|"right";logoSize:"small"|"medium"|"large";companyAlignment:"left"|"center"|"right";
+ layoutMode:"auto"|"logoFirst"|"detailsFirst";headerStyle:"line"|"band"|"none";dividerWidth:"short"|"medium"|"full";dividerPosition:"left"|"center"|"right";
+ topPadding:number;elementGap:number;dividerGap:number;afterDividerGap:number;dividerThickness:number;
+ fontFamily:"helvetica"|"times"|"courier";nameSize:number;detailSize:number;nameColor:string;detailColor:string;dividerColor:string;
+ showLogo:boolean;showName:boolean;showAddress:boolean;showEmail:boolean;showPhone:boolean;showTaxNumber:boolean;
+};
+export const defaultLetterhead:Letterhead={logoPosition:"left",logoSize:"medium",companyAlignment:"right",layoutMode:"auto",headerStyle:"line",dividerWidth:"full",dividerPosition:"center",topPadding:14,elementGap:5,dividerGap:7,afterDividerGap:9,dividerThickness:1,fontFamily:"helvetica",nameSize:17,detailSize:9,nameColor:"",detailColor:"#526271",dividerColor:"",showLogo:true,showName:true,showAddress:true,showEmail:true,showPhone:true,showTaxNumber:true};
 export type Business={businessName:string;email:string;phone:string;address:string;taxNumber:string;paymentInstructions:string;defaultTerms:string;province:string;logoKey:string;accentColor:string;secondaryColor:string;documentStyle:"classic"|"modern"|"minimal";footerText:string;estimatePrefix:string;invoicePrefix:string;emailSubject:string;emailMessage:string;features:Features;letterhead:Letterhead};
 export type Profile={displayName:string;jobTitle:string;phone:string;signature:string};
 export type CatalogEntry={id:string;kind:"item"|"package";name:string;description:string;unit:string;unitPriceCents:number;taxable:boolean;items:Item[];updatedAt:number};
@@ -28,5 +34,6 @@ export function readBusiness(r:Record<string,unknown>|null):Business{if(!r)retur
 export function readProfile(r:Record<string,unknown>|null):Profile{return r?{displayName:String(r.display_name||""),jobTitle:String(r.job_title||""),phone:String(r.phone||""),signature:String(r.signature||"")}:blankProfile}
 export function readCatalog(r:Record<string,unknown>):CatalogEntry{let items:Item[]=[];try{items=JSON.parse(String(r.items_json||"[]"))}catch{}return{id:String(r.id),kind:r.kind==="package"?"package":"item",name:String(r.name||""),description:String(r.description||""),unit:String(r.unit||"each"),unitPriceCents:Number(r.unit_price_cents||0),taxable:Boolean(r.taxable),items,updatedAt:Number(r.updated_at||0)}}
 export async function mutate(action:string,value:unknown={},id=""){const response=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,value,id})});const data=await response.json() as {error?:string;id?:string};if(!response.ok)throw new Error(data.error||"Save failed");return data}
+
 
 
