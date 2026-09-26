@@ -1,0 +1,24 @@
+export type Client={id:string;name:string;company:string;email:string;phone:string;billingAddress:string;siteAddress:string;notes:string};
+export type Item={id:string;description:string;quantity:number;unit:string;unitPriceCents:number;taxable:boolean};
+export type Doc={id:string;clientId:string|null;kind:"estimate"|"invoice";number:string;title:string;status:string;issueDate:string;dueDate:string;province:string;taxRate:number;discountCents:number;depositCents:number;notes:string;terms:string;items:Item[];clientSnapshot:Partial<Client>;updatedAt:number};
+export type Business={businessName:string;email:string;phone:string;address:string;taxNumber:string;paymentInstructions:string;defaultTerms:string;province:string};
+export type Photo={id:string;documentId:string;filename:string};
+export const blankBusiness:Business={businessName:"Grand Terra Group of Companies",email:"info@grandterragroup.ca",phone:"+1-866-578-6025",address:"55 Commerce Valley West, Suite 502, Thornhill, ON L3T 7P4",taxNumber:"",paymentInstructions:"",defaultTerms:"",province:"ON"};
+export const provinces:Record<string,[string,number,string]>={AB:["Alberta",5000,"GST"],BC:["British Columbia",5000,"GST"],MB:["Manitoba",5000,"GST"],NB:["New Brunswick",15000,"HST"],NL:["Newfoundland & Labrador",15000,"HST"],NS:["Nova Scotia",14000,"HST"],NT:["Northwest Territories",5000,"GST"],NU:["Nunavut",5000,"GST"],ON:["Ontario",13000,"HST"],PE:["Prince Edward Island",15000,"HST"],QC:["Québec",14975,"GST + QST"],SK:["Saskatchewan",5000,"GST"],YT:["Yukon",5000,"GST"]};
+export const cash=(c:number)=>new Intl.NumberFormat("en-CA",{style:"currency",currency:"CAD"}).format((c||0)/100);
+export const today=()=>new Date().toISOString().slice(0,10);
+export const cents=(v:string)=>Math.max(0,Math.round((Number(v)||0)*100));
+export const dollars=(v:number)=>(v/100).toFixed(2);
+export const item=():Item=>({id:crypto.randomUUID(),description:"",quantity:1,unit:"each",unitPriceCents:0,taxable:true});
+export const blankClient=():Client=>({id:"",name:"",company:"",email:"",phone:"",billingAddress:"",siteAddress:"",notes:""});
+export function blankDoc(kind:"estimate"|"invoice",b:Business):Doc{return{id:"",clientId:null,kind,number:(kind==="invoice"?"INV":"EST")+"-"+new Date().getFullYear()+"-"+String(Date.now()).slice(-5),title:"",status:"draft",issueDate:today(),dueDate:"",province:b.province,taxRate:provinces[b.province]?.[1]||13000,discountCents:0,depositCents:0,notes:"",terms:b.defaultTerms,items:[item()],clientSnapshot:{},updatedAt:0}}
+export function totals(d:Doc){const subtotal=Math.round(d.items.reduce((s,i)=>s+i.quantity*i.unitPriceCents,0));const taxable=Math.round(d.items.filter(i=>i.taxable).reduce((s,i)=>s+i.quantity*i.unitPriceCents,0));const after=Math.max(0,subtotal-d.discountCents);const base=subtotal?taxable*after/subtotal:0;const qc=d.province==="QC"&&d.taxRate===14975;const gst=qc?Math.round(base*0.05):0;const qst=qc?Math.round(base*0.09975):0;const tax=qc?gst+qst:Math.round(base*d.taxRate/100000);const total=after+tax;return{subtotal,tax,gst,qst,total,balance:Math.max(0,total-d.depositCents)}}
+export function readClient(r:Record<string,unknown>):Client{return{id:String(r.id),name:String(r.name||""),company:String(r.company||""),email:String(r.email||""),phone:String(r.phone||""),billingAddress:String(r.billing_address||""),siteAddress:String(r.site_address||""),notes:String(r.notes||"")}}
+export function readDoc(r:Record<string,unknown>):Doc{let items:Item[]=[];let clientSnapshot:Partial<Client>={};try{items=JSON.parse(String(r.items_json||"[]"))}catch{}try{clientSnapshot=JSON.parse(String(r.client_snapshot_json||"{}"))}catch{}return{id:String(r.id),clientId:r.client_id?String(r.client_id):null,kind:r.kind==="invoice"?"invoice":"estimate",number:String(r.number||""),title:String(r.title||""),status:String(r.status||"draft"),issueDate:String(r.issue_date||""),dueDate:String(r.due_date||""),province:String(r.province||"ON"),taxRate:Number(r.tax_rate||0),discountCents:Number(r.discount_cents||0),depositCents:Number(r.deposit_cents||0),notes:String(r.notes||""),terms:String(r.terms||""),items,clientSnapshot,updatedAt:Number(r.updated_at||0)}}
+export function readBusiness(r:Record<string,unknown>|null):Business{return r?{businessName:String(r.business_name||""),email:String(r.email||""),phone:String(r.phone||""),address:String(r.address||""),taxNumber:String(r.tax_number||""),paymentInstructions:String(r.payment_instructions||""),defaultTerms:String(r.default_terms||""),province:String(r.province||"ON")}:blankBusiness}
+export async function mutate(action:string,value:unknown={},id=""){const response=await fetch("/api/data",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,value,id})});const data=await response.json() as {error?:string;id?:string};if(!response.ok)throw new Error(data.error||"Save failed");return data}
+
+
+
+
+

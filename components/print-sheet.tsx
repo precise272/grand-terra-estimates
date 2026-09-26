@@ -1,0 +1,14 @@
+import { Business,Client,Doc,Photo,cash,totals } from "@/lib/model";
+const date=(s:string)=>s?new Date(s+"T12:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}):"—";
+export default function PrintSheet({doc,client,business,photos}:{doc:Doc;client?:Partial<Client>;business:Business;photos:Photo[]}){
+ const t=totals(doc);
+ return <div className="print-sheet"><div className="print-head"><div><div className="print-brand">GRAND TERRA</div><div>GROUP OF COMPANIES</div></div><div className="print-type">{doc.kind.toUpperCase()}<small>{doc.number}</small></div></div>
+ <div className="print-meta"><div><strong>From</strong><b>{business.businessName}</b><span>{business.address}</span><span>{business.email}</span><span>{business.phone}</span>{business.taxNumber&&<span>Tax no. {business.taxNumber}</span>}</div><div><strong>Bill to</strong><b>{client?.name}</b><span>{client?.company}</span><span>{client?.billingAddress}</span><span>{client?.email}</span><span>{client?.phone}</span></div><div><strong>Details</strong><span>Issued {date(doc.issueDate)}</span>{doc.dueDate&&<span>{doc.kind==="invoice"?"Due":"Valid until"} {date(doc.dueDate)}</span>}<span>Job site: {client?.siteAddress||"—"}</span></div></div>
+ <h2>{doc.title||(doc.kind==="invoice"?"Invoice":"Estimate")}</h2><table><thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Amount</th></tr></thead><tbody>{doc.items.map(i=><tr key={i.id}><td>{i.description}</td><td>{i.quantity}</td><td>{i.unit}</td><td>{cash(i.unitPriceCents)}</td><td>{cash(Math.round(i.quantity*i.unitPriceCents))}</td></tr>)}</tbody></table>
+ <div className="print-totals"><div><span>Subtotal</span><b>{cash(t.subtotal)}</b></div>{doc.discountCents>0&&<div><span>Discount</span><b>−{cash(doc.discountCents)}</b></div>}{t.gst>0?<><div><span>GST (5%)</span><b>{cash(t.gst)}</b></div><div><span>QST (9.975%)</span><b>{cash(t.qst)}</b></div></>:<div><span>Tax ({doc.taxRate/1000}%)</span><b>{cash(t.tax)}</b></div>}<div className="print-grand"><span>Total CAD</span><b>{cash(t.total)}</b></div>{doc.depositCents>0&&<div><span>{doc.kind==="invoice"?"Balance due":"After deposit"}</span><b>{cash(t.balance)}</b></div>}</div>
+ {doc.notes&&<div className="print-note"><strong>Notes</strong><p>{doc.notes}</p></div>}{doc.terms&&<div className="print-note"><strong>Terms</strong><p>{doc.terms}</p></div>}{doc.kind==="invoice"&&business.paymentInstructions&&<div className="print-note"><strong>Payment instructions</strong><p>{business.paymentInstructions}</p></div>}
+ {photos.length>0&&<div className="print-photos"><strong>Job photos</strong><div>{photos.map(p=><img key={p.id} src={"/api/photos?id="+encodeURIComponent(p.id)} alt={p.filename}/>)}</div></div>}<footer>Grand Terra Group of Companies · All amounts in CAD</footer></div>
+}
+
+
+
